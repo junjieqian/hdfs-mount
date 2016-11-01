@@ -7,7 +7,9 @@ import (
 	"bazil.org/fuse/fs"
 	"golang.org/x/net/context"
 	"log"
+	"os/user"
 	"path"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -144,6 +146,31 @@ func (this *File) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *f
 			log.Printf("Chmod failed with error: %v", err)
 		} else {
 			this.Attrs.Mode = req.Mode
+		}
+	}
+
+	if req.Valid.Uid() || req.Valid.Gid() {
+		newusr, err := user.LookupId(strconv.FormatUint(uint64(req.Uid), 10))
+		if err != nil {
+			log.Printf("Chmod: failed to get user info with req.Uid, %v", err)
+			return err
+		}
+		newname := newusr.Username
+		// TODO: Group is now hardcoded to be "root", implement proper mapping
+		newgroup := "root"
+		log.Printf("Chmod [%s] to [%s:%s]", path, newname, newgroup)
+		(func() {
+			err = this.FileSystem.HdfsAccessor.Chown(path, newname, newgroup)
+			if err != nil {
+				return
+			}
+		})()
+
+		if err != nil {
+			log.Printf("Chown failed with error: %v", err)
+		} else {
+			this.Attrs.Uid = req.Uid
+			this.Attrs.Gid = req.Gid
 		}
 	}
 
