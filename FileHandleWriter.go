@@ -4,15 +4,12 @@ package main
 
 import (
 	"bazil.org/fuse"
-	"errors"
 	"golang.org/x/net/context"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 )
-
-const MaxFileSizeForWrite uint64 = 100 * 1024 * 1024 * 1024 // 100G is a limit for now
 
 // Encapsulates state and routines for writing data from the file handle
 type FileHandleWriter struct {
@@ -48,15 +45,8 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 
 	if !newFile {
 		// Request to write to existing file
-		attrs, err := hdfsAccessor.Stat(path)
 		if err != nil {
 			log.Printf("[%s] Can't stat file: %s", path, err)
-		}
-		if attrs.Size >= MaxFileSizeForWrite {
-			this.stagingFile.Close()
-			this.stagingFile = nil
-			log.Printf("[%s] Maximum allowed file size for writing exceeded (%d >= %d)", path, attrs.Size, MaxFileSizeForWrite)
-			return nil, errors.New("Too large file")
 		}
 
 		log.Printf("Buffering contents of the file to the staging area %s...", this.stagingFile.Name())
@@ -82,10 +72,6 @@ func NewFileHandleWriter(handle *FileHandle, newFile bool) (*FileHandleWriter, e
 
 // Responds on FUSE Write request
 func (this *FileHandleWriter) Write(handle *FileHandle, ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error {
-	if uint64(req.Offset) >= MaxFileSizeForWrite {
-		log.Printf("[%s] Maximum allowed file size for writing exceeded (%d >= %d)", this.Handle.File.AbsolutePath(), req.Offset, MaxFileSizeForWrite)
-		return errors.New("Too large file")
-	}
 	nw, err := this.stagingFile.WriteAt(req.Data, req.Offset)
 	resp.Size = nw
 	if err != nil {
