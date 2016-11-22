@@ -43,12 +43,12 @@ func (this *hdfsWriterImpl) Flush() error {
 	return errors.New("Flush is not implemented")
 }
 
-// Closes the stream
+// Truncate the HDFS file at a given position
 func (this *hdfsWriterImpl) Truncate() error {
 	return errors.New("Truncate is not implemented")
 }
 
-// Truncate the HDFS file at a given position
+// Closes the stream
 func (this *hdfsWriterImpl) Close() error {
 	return this.BackendWriter.Close()
 }
